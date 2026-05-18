@@ -1,0 +1,221 @@
+﻿// ----------------------------------------------------------------------------------
+// Copyright (c) The Standard Organization: A coalition of the Good-Hearted Engineers
+// ----------------------------------------------------------------------------------
+
+using EFxceptions.Models.Exceptions;
+using Microsoft.EntityFrameworkCore;
+using StudentApp.Models.Foundations.LibraryCards;
+using StudentApp.Models.Foundations.LibraryCards.Exceptions;
+using Xeptions;
+
+namespace StudentApp.Services.Foundations.LibraryCards
+{
+    internal partial class LibraryCardService
+    {
+        private delegate ValueTask<LibraryCard> ReturningLibraryCardFunction();
+        private delegate ValueTask<IQueryable<LibraryCard>> ReturningLibraryCardsFunction();
+
+        private async ValueTask<LibraryCard> TryCatch(ReturningLibraryCardFunction returningLibraryCardFunction)
+        {
+            try
+            {
+                return await returningLibraryCardFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException(
+                        "The dependency operation timed out.");
+
+                var timeoutLibraryCardException =
+                    new TimeoutLibraryCardException(
+                        message: "Failed library card timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogDependencyException(timeoutLibraryCardException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (NullLibraryCardException nullLibraryCardException)
+            {
+                throw CreateAndLogValidationException(nullLibraryCardException);
+            }
+            catch (InvalidLibraryCardException invalidLibraryCardException)
+            {
+                throw CreateAndLogValidationException(invalidLibraryCardException);
+            }
+            catch (NotFoundLibraryCardException notFoundLibraryCardException)
+            {
+                throw CreateAndLogValidationException(notFoundLibraryCardException);
+            }
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsLibraryCardException =
+                    new AlreadyExistsLibraryCardException(
+                        message: "Library card already exists, please try again.",
+                        innerException: duplicateKeyException);
+
+                throw CreateAndLogDependencyValidationException(alreadyExistsLibraryCardException);
+            }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var failedLibraryCardStorageException =
+                    new FailedLibraryCardStorageException(
+                        message: "Failed library card storage error occurred, contact support.",
+                        innerException: dbUpdateConcurrencyException);
+
+                throw CreateAndLogDependencyValidationException(failedLibraryCardStorageException);
+            }
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedLibraryCardStorageException =
+                    new FailedLibraryCardStorageException(
+                        message: "Failed library card storage error occurred, contact support.",
+                        innerException: dbUpdateException);
+
+                throw await CreateAndLogDependencyException(failedLibraryCardStorageException);
+            }
+            catch (Exception exception)
+            {
+                var failedLibraryCardServiceException =
+                    new FailedLibraryCardServiceException(
+                        message: "Unexpected service error occurred, contact support.",
+                        innerException: exception);
+
+                throw CreateAndLogServiceException(failedLibraryCardServiceException);
+            }
+        }
+
+        private async ValueTask<IQueryable<LibraryCard>> TryCatch(ReturningLibraryCardsFunction returningLibraryCardsFunction)
+        {
+            try
+            {
+                return await returningLibraryCardsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException(
+                        "The dependency operation timed out.");
+
+                var timeoutLibraryCardException =
+                    new TimeoutLibraryCardException(
+                        message: "Failed library card timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                // Example of retrying the operation after a timeout exception occurs.
+                return await TryCatchWithRetry(
+                    returningLibraryCardsFunction,
+                    async () => await CreateAndLogDependencyException(timeoutLibraryCardException));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var failedLibraryCardStorageException =
+                    new FailedLibraryCardStorageException(
+                        message: "Failed library card storage error occurred, contact support.",
+                        innerException: dbUpdateConcurrencyException);
+
+                // Example of retrying the operation after a storage concurrency exception occurs.
+                return await TryCatchWithRetry(
+                   returningLibraryCardsFunction,
+                   async () => await CreateAndLogDependencyException(failedLibraryCardStorageException));
+            }
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedLibraryCardStorageException =
+                    new FailedLibraryCardStorageException(
+                        message: "Failed library card storage error occurred, contact support.",
+                        innerException: dbUpdateException);
+
+                throw await CreateAndLogDependencyException(failedLibraryCardStorageException);
+            }
+            catch (Exception exception)
+            {
+                var failedLibraryCardServiceException =
+                    new FailedLibraryCardServiceException(
+                        message: "Unexpected service error occurred, contact support.",
+                        innerException: exception);
+
+                throw CreateAndLogServiceException(failedLibraryCardServiceException);
+            }
+        }
+
+        private async ValueTask<LibraryCard> TryCatchWithRetry(
+            ReturningLibraryCardFunction returningLibraryCardFunction,
+            Func<ValueTask<Xeption>> createAndLogExceptionAsync)
+        {
+            try
+            {
+                return await returningLibraryCardFunction();
+            }
+            catch
+            {
+                throw await createAndLogExceptionAsync();
+            }
+        }
+
+        private async ValueTask<IQueryable<LibraryCard>> TryCatchWithRetry(
+            ReturningLibraryCardsFunction returningLibraryCardsFunction,
+            Func<ValueTask<Xeption>> createAndLogExceptionAsync)
+        {
+            try
+            {
+                return await returningLibraryCardsFunction();
+            }
+            catch
+            {
+                throw await createAndLogExceptionAsync();
+            }
+        }
+
+        private LibraryCardValidationException CreateAndLogValidationException(Xeption exception)
+        {
+            var libraryCardValidationException =
+                new LibraryCardValidationException(
+                    message: "Library card validation error occurred, fix the errors and try again.",
+                    innerException: exception);
+
+            return libraryCardValidationException;
+        }
+
+        private LibraryCardDependencyValidationException CreateAndLogDependencyValidationException(Xeption exception)
+        {
+            var libraryCardDependencyValidationException =
+                new LibraryCardDependencyValidationException(
+                    message: "Library card dependency validation error occurred, fix the errors and try again.",
+                    innerException: exception);
+
+            return libraryCardDependencyValidationException;
+        }
+
+        private async ValueTask<LibraryCardDependencyException> CreateAndLogDependencyException(Xeption exception)
+        {
+            var libraryCardDependencyException =
+                new LibraryCardDependencyException(
+                    message: "Library card dependency error occurred, contact support.",
+                    innerException: exception);
+
+            return libraryCardDependencyException;
+        }
+
+        private LibraryCardServiceException CreateAndLogServiceException(Xeption exception)
+        {
+            var libraryCardServiceException =
+                new LibraryCardServiceException(
+                    message: "Library card service error occurred, contact support.",
+                    innerException: exception);
+
+            return libraryCardServiceException;
+        }
+    }
+}

@@ -1,0 +1,79 @@
+// ----------------------------------------------------------------------------------
+// Copyright (c) The Standard Organization: A coalition of the Good-Hearted Engineers
+// ----------------------------------------------------------------------------------
+
+using GitFyle.Core.Api.Brokers.Storages;
+using StudentApp.Models.Foundations.Students;
+
+namespace StudentApp.Services.Foundations.Students
+{
+    internal partial class StudentService : IStudentService
+    {
+        private readonly IStorageBroker storageBroker;
+
+        public StudentService(IStorageBroker storageBroker) =>
+            this.storageBroker = storageBroker;
+
+        public ValueTask<Student> AddStudentAsync(
+            Student student,
+            CancellationToken cancellationToken = default) =>
+        TryCatch(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateStudentOnAdd(student);
+
+            return await this.storageBroker.InsertStudentAsync(student, cancellationToken);
+        });
+
+        public ValueTask<IQueryable<Student>> RetrieveAllStudentsAsync() =>
+            TryCatch(() => ValueTask.FromResult(this.storageBroker.SelectAllStudents()));
+
+        public ValueTask<Student> RetrieveStudentByIdAsync(
+            Guid studentId,
+            CancellationToken cancellationToken = default) =>
+        TryCatch(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateStudentId(studentId);
+
+            Student maybeStudent =
+                await this.storageBroker.SelectStudentByIdAsync(studentId, cancellationToken);
+
+            ValidateStorageStudent(maybeStudent, studentId);
+
+            return maybeStudent;
+        });
+
+        public ValueTask<Student> ModifyStudentAsync(
+            Student student,
+            CancellationToken cancellationToken = default) =>
+        TryCatch(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateStudentOnModify(student);
+
+            Student maybeStudent =
+                await this.storageBroker.SelectStudentByIdAsync(student.Id, cancellationToken);
+
+            ValidateStorageStudent(maybeStudent, student.Id);
+
+            return await this.storageBroker.UpdateStudentAsync(student, cancellationToken);
+        });
+
+        public ValueTask<Student> RemoveStudentByIdAsync(
+            Guid studentId,
+            CancellationToken cancellationToken = default) =>
+        TryCatch(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateStudentId(studentId);
+
+            Student maybeStudent =
+                await this.storageBroker.SelectStudentByIdAsync(studentId, cancellationToken);
+
+            ValidateStorageStudent(maybeStudent, studentId);
+
+            return await this.storageBroker.DeleteStudentAsync(maybeStudent, cancellationToken);
+        });
+    }
+}

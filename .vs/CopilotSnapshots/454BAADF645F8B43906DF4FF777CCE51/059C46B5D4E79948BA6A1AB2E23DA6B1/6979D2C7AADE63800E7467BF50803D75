@@ -1,0 +1,153 @@
+﻿// ----------------------------------------------------------------------------------
+// Copyright (c) The Standard Organization: A coalition of the Good-Hearted Engineers
+// ----------------------------------------------------------------------------------
+
+using StudentApp.Models.Foundations.Students;
+using StudentApp.Models.Orchestrations.Students.Exceptions;
+using Xeptions;
+
+namespace StudentApp.Services.Orchestrations.Students
+{
+    internal partial class StudentOrchestrationService
+    {
+        private delegate ValueTask<Student> ReturningStudentFunction();
+        private delegate ValueTask CompensatingStudentFunction();
+
+        private async ValueTask<Student> TryCatch(ReturningStudentFunction returningStudentFunction)
+        {
+            try
+            {
+                return await returningStudentFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException(
+                        "The dependency operation timed out.");
+
+                var timeoutStudentOrchestrationException =
+                    new TimeoutStudentOrchestrationException(
+                        message: "Student orchestration timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw CreateAndLogDependencyException(timeoutStudentOrchestrationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (NullStudentOrchestrationException nullStudentOrchestrationException)
+            {
+                throw CreateAndLogValidationException(nullStudentOrchestrationException);
+            }
+            catch (InvalidStudentOrchestrationException invalidStudentOrchestrationException)
+            {
+                throw CreateAndLogValidationException(invalidStudentOrchestrationException);
+            }
+            catch (StudentOrchestrationDependencyValidationException)
+            {
+                throw;
+            }
+            catch (StudentOrchestrationDependencyException)
+            {
+                throw;
+            }
+            catch (StudentOrchestrationServiceException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                var failedStudentOrchestrationServiceException =
+                    new StudentOrchestrationServiceException(
+                        message: "Unexpected orchestration error occurred, contact support.",
+                        innerException: exception as Xeption
+                            ?? new StudentOrchestrationServiceException(
+                                message: exception.Message,
+                                innerException: exception as Xeption));
+
+                throw CreateAndLogServiceException(failedStudentOrchestrationServiceException);
+            }
+        }
+
+        private async ValueTask<Student> TryCatchWithCompensationAsync(
+            ReturningStudentFunction returningStudentFunction,
+            CompensatingStudentFunction compensatingStudentFunction)
+        {
+            try
+            {
+                return await returningStudentFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                await compensatingStudentFunction();
+
+                var timeoutException =
+                    new TimeoutException(
+                        "The dependency operation timed out.");
+
+                var timeoutStudentOrchestrationException =
+                    new TimeoutStudentOrchestrationException(
+                        message: "Student orchestration timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                await compensatingStudentFunction();
+                throw CreateAndLogDependencyException(timeoutStudentOrchestrationException);
+            }
+            catch (OperationCanceledException)
+            {
+                await compensatingStudentFunction();
+                throw;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private StudentOrchestrationValidationException CreateAndLogValidationException(Xeption exception)
+        {
+            var studentOrchestrationValidationException =
+                new StudentOrchestrationValidationException(
+                    message: "Student orchestration validation error occurred, fix the errors and try again.",
+                    innerException: exception);
+
+            return studentOrchestrationValidationException;
+        }
+
+        private StudentOrchestrationDependencyValidationException CreateAndLogDependencyValidationException(
+            Xeption exception)
+        {
+            var studentOrchestrationDependencyValidationException =
+                new StudentOrchestrationDependencyValidationException(
+                    message: "Student orchestration dependency validation error occurred, fix the errors and try again.",
+                    innerException: exception);
+
+            return studentOrchestrationDependencyValidationException;
+        }
+
+        private StudentOrchestrationDependencyException CreateAndLogDependencyException(Xeption exception)
+        {
+            var studentOrchestrationDependencyException =
+                new StudentOrchestrationDependencyException(
+                    message: "Student orchestration dependency error occurred, contact support.",
+                    innerException: exception);
+
+            return studentOrchestrationDependencyException;
+        }
+
+        private StudentOrchestrationServiceException CreateAndLogServiceException(Xeption exception)
+        {
+            var studentOrchestrationServiceException =
+                new StudentOrchestrationServiceException(
+                    message: "Student orchestration service error occurred, contact support.",
+                    innerException: exception);
+
+            return studentOrchestrationServiceException;
+        }
+    }
+}
